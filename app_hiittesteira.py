@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 
-# CONFIGURAÇÕES DE PÁGINA
+# CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
     page_title="HIIT Corrida na Esteira",
     page_icon="🏃‍♂️",
@@ -9,23 +9,26 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS ESTILIZADO
+# CSS ESTILO PERSONALIZADO
 st.markdown("""
 <style>
     .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        padding: 12px 24px;
-        border-radius: 50px;
-        border: none;
-        font-size: 20px;
+        font-size: 24px !important;
+        padding: 18px 36px !important;
+        border-radius: 50px !important;
     }
-    .stButton>button:hover {
-        background-color: #45a049;
-        color: white;
+    .btn-principal {
+        font-size: 24px !important;
+        padding: 18px 36px !important;
+        border-radius: 50px !important;
     }
-    .stMetric {
-        font-size: 24px;
+    .btn-cancelar {
+        background-color: #cccccc !important;
+        color: #333333 !important;
+        font-size: 14px !important;
+        border-radius: 30px !important;
+        padding: 6px 18px !important;
+        margin-top: 6px;
     }
     .css-18e3th9 {
         padding-top: 1rem;
@@ -39,17 +42,19 @@ st.markdown("""
 
 st.title("🏃‍♂️ Treino HIIT na Esteira com Som")
 
-# INICIALIZAÇÃO DE ESTADOS
+# INICIALIZAÇÃO DE VARIÁVEIS
 if "treino_iniciado" not in st.session_state:
     st.session_state.treino_iniciado = False
 if "repeticoes_restantes" not in st.session_state:
     st.session_state.repeticoes_restantes = 0
 if "fase" not in st.session_state:
-    st.session_state.fase = "corrida"  # "corrida" ou "descanso"
+    st.session_state.fase = "corrida"
 if "cronometro_ativo" not in st.session_state:
     st.session_state.cronometro_ativo = False
+if "botoes_bloqueados" not in st.session_state:
+    st.session_state.botoes_bloqueados = False
 
-# FUNÇÃO PARA TOCAR BIP
+# TOCAR BIP
 def tocar_bip():
     bip_html = """
     <audio autoplay>
@@ -58,21 +63,29 @@ def tocar_bip():
     """
     st.markdown(bip_html, unsafe_allow_html=True)
 
-# ENTRADA DO USUÁRIO
+# TELA INICIAL
 if not st.session_state.treino_iniciado:
     repeticoes = st.number_input("Número de repetições:", min_value=1, step=1, value=5)
     tempo_corrida = st.number_input("Tempo de corrida (segundos):", min_value=1, step=1, value=30)
     tempo_descanso = st.number_input("Tempo de descanso (segundos):", min_value=1, step=1, value=30)
 
-    if st.button("🟢 Iniciar"):
-        st.session_state.treino_iniciado = True
-        st.session_state.repeticoes_restantes = repeticoes
-        st.session_state.tempo_corrida = tempo_corrida
-        st.session_state.tempo_descanso = tempo_descanso
-        st.session_state.fase = "corrida"
-        st.session_state.cronometro_ativo = False
+    col_botao = st.columns(3)
+    with col_botao[1]:
+        iniciar_click = st.button("🟢 Iniciar", disabled=st.session_state.treino_iniciado)
 
-# INTERFACE DO TREINO
+        if iniciar_click:
+            st.session_state.treino_iniciado = True
+            st.session_state.repeticoes_restantes = repeticoes
+            st.session_state.tempo_corrida = tempo_corrida
+            st.session_state.tempo_descanso = tempo_descanso
+            st.session_state.fase = "corrida"
+            st.session_state.cronometro_ativo = False
+            st.rerun()
+
+    st.markdown("---")
+    st.caption("Desenvolvido por [AndreReisBin](https://github.com/AndreReisBin) — Treine forte e com segurança! 💪")
+
+# TELA DE TREINO
 if st.session_state.treino_iniciado:
 
     st.header(f"Repetições restantes: {st.session_state.repeticoes_restantes}")
@@ -80,29 +93,42 @@ if st.session_state.treino_iniciado:
     placeholder_status = st.empty()
     placeholder_timer = st.empty()
 
-    col1, col2 = st.columns(2)
-    with col1:
+    colunas = st.columns(3)
+    with colunas[1]:
         iniciar_btn = st.button(
             "🏃‍♂️ Correr" if st.session_state.fase == "corrida" else "⏸️ Descansar",
-            disabled=st.session_state.cronometro_ativo
+            disabled=st.session_state.cronometro_ativo or st.session_state.botoes_bloqueados,
+            key="acao"
         )
-    with col2:
-        cancelar_btn = st.button("❌ Cancelar")
+        cancelar_btn = st.button("❌ Cancelar", key="cancelar", disabled=st.session_state.cronometro_ativo)
+
+        st.markdown("""
+            <script>
+            const botoes = window.parent.document.querySelectorAll('button');
+            botoes.forEach(btn => {
+                if (btn.innerText === '❌ Cancelar') {
+                    btn.classList.add('btn-cancelar');
+                }
+                if (btn.innerText.includes('Correr') || btn.innerText.includes('Descansar')) {
+                    btn.classList.add('btn-principal');
+                }
+            });
+            </script>
+        """, unsafe_allow_html=True)
 
     if iniciar_btn and not st.session_state.cronometro_ativo:
         st.session_state.cronometro_ativo = True
+        st.session_state.botoes_bloqueados = True
         tempo = st.session_state.tempo_corrida if st.session_state.fase == "corrida" else st.session_state.tempo_descanso
         label = "Correndo..." if st.session_state.fase == "corrida" else "Descansando..."
 
         with placeholder_status.container():
             st.subheader(label)
 
-        with placeholder_timer.container():
-            for t in range(tempo, 0, -1):
-                placeholder_timer.metric(label="Tempo restante:", value=f"{t} segundos")
-                time.sleep(1)
-            placeholder_timer.metric(label="Tempo restante:", value="0 segundos")
-
+        for t in range(tempo, 0, -1):
+            placeholder_timer.metric(label="Tempo restante:", value=f"{t} segundos")
+            time.sleep(1)
+        placeholder_timer.metric(label="Tempo restante:", value="0 segundos")
 
         tocar_bip()
 
@@ -113,6 +139,7 @@ if st.session_state.treino_iniciado:
             st.session_state.fase = "corrida"
 
         st.session_state.cronometro_ativo = False
+        st.session_state.botoes_bloqueados = False
 
         if st.session_state.repeticoes_restantes == 0:
             st.balloons()
@@ -124,5 +151,3 @@ if st.session_state.treino_iniciado:
     if cancelar_btn:
         st.session_state.clear()
         st.rerun()
-st.markdown("---")
-st.caption("Desenvolvido por [AndreReisBin](https://github.com/AndreReisBin) — Treine forte e com segurança! 💪")
